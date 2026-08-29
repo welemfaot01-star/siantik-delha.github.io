@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SIANTIK DELHA - Antrean (Thermal AINUO802 80mm)</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter & FontAwesome Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDK (v8 stable) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
         body { 
@@ -115,6 +121,7 @@
 
     <main class="flex-grow w-full flex flex-col items-center justify-center p-2 md:p-3 max-w-[1400px] mx-auto print:hidden">
         
+        <!-- KIOSK VIEW -->
         <div id="view-kiosk" class="w-full flex flex-col h-[calc(100vh-60px)] justify-between gap-2 animate-fade-in">
             
             <div class="w-full bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-xl py-2 px-4 flex flex-row items-center justify-between shadow-lg border border-emerald-500/30">
@@ -233,10 +240,11 @@
 
             <div class="w-full bg-slate-950 text-slate-400 text-[10px] py-1 px-3 rounded-lg flex justify-between items-center border border-slate-800">
                 <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-info text-emerald-400"></i> Harap simpan cetakan struk nomor antrean.</span>
-                <span class="text-slate-500 font-mono">Cloud Sync Active • Ver 3.0</span>
+                <span class="text-slate-500 font-mono">AINUO802 Ready • Ver 2.8 (Multi-Sync Connected)</span>
             </div>
         </div>
 
+        <!-- ADMIN VIEW -->
         <div id="view-admin" class="w-full hidden flex-col gap-4 animate-fade-in py-2">
             <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm">
                 <div>
@@ -266,7 +274,7 @@
                 <div class="lg:col-span-2 bg-slate-800 rounded-xl border border-slate-700 p-4 flex flex-col gap-3">
                     <h3 class="font-bold text-base text-slate-200 border-b border-slate-700 pb-2 flex justify-between items-center">
                         <span>Layanan Poli / Loket</span>
-                        <span id="cloud-indicator" class="text-xs text-emerald-400 font-semibold flex items-center gap-1.5"><i class="fa-solid fa-cloud animate-pulse"></i> Cloud Sync Aktif</span>
+                        <span class="text-xs text-emerald-400 font-semibold"><i class="fa-solid fa-wifi animate-pulse"></i> Multi-Device Synced</span>
                     </h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="admin-cards-container"></div>
                 </div>
@@ -280,6 +288,7 @@
             </div>
         </div>
 
+        <!-- TV VIEW -->
         <div id="view-tv" class="hidden w-full min-h-screen bg-slate-950 absolute top-0 left-0 z-50 flex-col print:hidden">
             <div class="bg-slate-900 text-white px-6 py-3 flex justify-between items-center shadow-md border-b border-slate-800 h-[80px]">
                 <div class="flex items-center gap-3">
@@ -392,43 +401,325 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'siantik-delha-app';
-        const fallbackConfig = {
-            apiKey: "AIzaSyAhK5GK2vrxirZpPM1JAH3MEQwpeS8SPMg", 
-            authDomain: "aplikasi-siantik-delha.firebaseapp.com",
-            projectId: "aplikasi-siantik-delha",
-            storageBucket: "aplikasi-siantik-delha.firebasestorage.app",
-            messagingSenderId: "34647008178",
-            appId: "1:34647008178:web:e36dc5184c74e372f3faab"
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA0T6XIx7geF6WlyKJ4-ryLBFy0x-Tn08E",
+            authDomain: "aplikasi-siantik-delha-b41ab.firebaseapp.com",
+            databaseURL: "https://aplikasi-siantik-delha-b41ab-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "aplikasi-siantik-delha-b41ab",
+            storageBucket: "aplikasi-siantik-delha-b41ab.firebasestorage.app",
+            messagingSenderId: "416713958642",
+            appId: "1:416713958642:web:36d02d423441af03d1dc6b",
+            measurementId: "G-XQ87ZYFDYY"
         };
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : fallbackConfig;
 
-        let app, db, auth, currentUser = null;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch(e) {
-            console.warn("Firebase App Init Warning", e);
-        }
+        // ============================================================
+        // SIANTIK DELHA - MULTI DEVICE FIREBASE SYNC V3
+        // Firebase menjadi pusat data. localStorage/BroadcastChannel
+        // hanya dipakai sebagai cache tampilan, bukan sumber data utama.
+        // ============================================================
+        let firebaseReady = false;
+        let db = null;
+        let rootRef = null;
+        let counterRef = null;
+        let ticketsRef = null;
+        let activeRef = null;
+        let lastCalledRef = null;
+        let settingsRef = null;
+
+        const STORAGE_KEY = 'siantik_delha_queue_data_v3';
+        const channel = ('BroadcastChannel' in window) ? new BroadcastChannel('siantik_delha_local_channel_v3') : null;
+
+        const EMPTY_ACTIVE = {
+            DEWASA: "Belum Ada", ANAK: "Belum Ada", KIA: "Belum Ada", KB: "Belum Ada",
+            GIGI: "Belum Ada", KONSELING: "Belum Ada", IGD: "Belum Ada"
+        };
 
         let queueState = {
             globalCounter: 0,
-            activeCalling: { DEWASA: "Belum Ada", ANAK: "Belum Ada", KIA: "Belum Ada", KB: "Belum Ada", GIGI: "Belum Ada", KONSELING: "Belum Ada", IGD: "Belum Ada" },
+            activeCalling: { ...EMPTY_ACTIVE },
             history: [],
             lastCalled: { id: null, ticket: null, poli: null, prefix: null, num: null, timestamp: null },
             videoVolume: 50,
             videoMuted: false
         };
 
-        let useLocalSync = false;
-        let currentViewMode = 'kiosk'; 
+        let currentViewMode = 'kiosk';
         let lastPlayedTimestamp = null;
         let isTVModeActive = false;
         let tvCallTimeout = null;
-        let savedVideoVolume = 0.
+        let savedVideoVolume = 0.5;
+
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            rootRef = db.ref('siantikDelhaV3');
+            counterRef = rootRef.child('globalCounter');
+            ticketsRef = rootRef.child('tickets');
+            activeRef = rootRef.child('activeCalling');
+            lastCalledRef = rootRef.child('lastCalled');
+            settingsRef = rootRef.child('settings');
+            firebaseReady = true;
+        } catch (e) {
+            console.error('Firebase gagal diinisialisasi:', e);
+        }
+
+        const categories = {
+            DEWASA: { prefix: 'D', name: 'Poli Dewasa', color: 'bg-blue-600', tvColor: 'bg-blue-700' },
+            ANAK: { prefix: 'A', name: 'Poli Anak', color: 'bg-orange-500', tvColor: 'bg-orange-600' },
+            KIA: { prefix: 'K', name: 'Poli KIA', color: 'bg-pink-600', tvColor: 'bg-pink-700' },
+            KB: { prefix: 'B', name: 'Poli KB', color: 'bg-purple-600', tvColor: 'bg-purple-700' },
+            GIGI: { prefix: 'G', name: 'Poli Gigi', color: 'bg-emerald-600', tvColor: 'bg-emerald-700' },
+            KONSELING: { prefix: 'S', name: 'Poli Konseling', color: 'bg-amber-500', tvColor: 'bg-amber-600' },
+            IGD: { prefix: 'I', name: 'IGD', color: 'bg-red-600', tvColor: 'bg-red-700' }
+        };
+
+        function persistLocal() {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(queueState)); } catch(e) {}
+        }
+
+        function refreshUI(triggerCall = true) {
+            persistLocal();
+            renderAdminPanel();
+            renderHistoryLog();
+            renderTVGrid();
+            if (triggerCall && queueState.lastCalled && queueState.lastCalled.timestamp && queueState.lastCalled.timestamp !== lastPlayedTimestamp) {
+                lastPlayedTimestamp = queueState.lastCalled.timestamp;
+                if (isTVModeActive) triggerTVCall(queueState.lastCalled);
+            }
+        }
+
+        function loadLocalState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    queueState = { ...queueState, ...parsed, activeCalling: { ...EMPTY_ACTIVE, ...(parsed.activeCalling || {}) } };
+                }
+            } catch(e) {}
+        }
+        loadLocalState();
+
+        // Real-time listeners: setiap perubahan Firebase langsung diterima semua perangkat.
+        function initQueueSync() {
+            if (!firebaseReady) return;
+
+            counterRef.on('value', snap => {
+                queueState.globalCounter = Number(snap.val() || 0);
+                refreshUI(false);
+            });
+
+            ticketsRef.on('value', snap => {
+                const data = snap.val() || {};
+                queueState.history = Object.keys(data).map(key => ({ firebaseKey: key, ...data[key] }))
+                    .sort((a,b) => Number(b.createdAt || b.id || 0) - Number(a.createdAt || a.id || 0));
+                refreshUI(false);
+            });
+
+            activeRef.on('value', snap => {
+                queueState.activeCalling = { ...EMPTY_ACTIVE, ...(snap.val() || {}) };
+                refreshUI(false);
+            });
+
+            lastCalledRef.on('value', snap => {
+                queueState.lastCalled = snap.val() || { id:null, ticket:null, poli:null, prefix:null, num:null, timestamp:null };
+                refreshUI(true);
+            });
+
+            settingsRef.on('value', snap => {
+                const st = snap.val() || {};
+                if (st.videoVolume !== undefined) queueState.videoVolume = st.videoVolume;
+                if (st.videoMuted !== undefined) queueState.videoMuted = st.videoMuted;
+                const vid = document.getElementById('tv-video-player');
+                const slider = document.getElementById('admin-volume-slider');
+                if (vid) {
+                    vid.volume = Number(queueState.videoVolume || 50) / 100;
+                    vid.muted = !!queueState.videoMuted;
+                }
+                if (slider) slider.value = Number(queueState.videoVolume || 50);
+                updateMuteIcon();
+                persistLocal();
+            });
+        }
+
+        if (channel) {
+            channel.onmessage = () => { /* Firebase adalah sumber data utama. */ };
+        }
+        initQueueSync();
+        refreshUI(false);
+
+        function isLayananTerbuka() {
+            const skrg = new Date();
+            const hari = skrg.getDay();
+            const jam = skrg.getHours();
+            if (hari >= 1 && hari <= 4 && jam >= 7 && jam < 11) return true;
+            if (hari === 5 && jam >= 7 && jam < 10) return true;
+            if (hari === 6 && jam >= 7 && jam < 11) return true;
+            return false;
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+            const timeStr = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+            const kd=document.getElementById('kiosk-live-date'), kt=document.getElementById('kiosk-live-time');
+            const td=document.getElementById('tv-live-date'), tt=document.getElementById('tv-live-time');
+            if(kd) kd.innerText=dateStr; if(kt) kt.innerText=timeStr; if(td) td.innerText=dateStr; if(tt) tt.innerText=timeStr;
+        }
+        setInterval(updateClock,1000); updateClock();
+
+        // Atomic counter: dua perangkat mengambil nomor bersamaan pun tidak mendapatkan nomor yang sama.
+        async function ambilTiket(catName, prefix) {
+            if (catName !== 'IGD' && !isLayananTerbuka()) {
+                const btn=document.getElementById(`btn-${catName}`);
+                if(btn){btn.classList.add('animate-shake');setTimeout(()=>btn.classList.remove('animate-shake'),300);}
+                return;
+            }
+            if (!firebaseReady) {
+                alert('Firebase belum terhubung. Periksa koneksi internet dan Firebase Rules.');
+                return;
+            }
+            const result = await counterRef.transaction(current => Number(current || 0) + 1);
+            if (!result.committed) return;
+            finalizeTicketCreation(catName, prefix, Number(result.snapshot.val()));
+        }
+
+        async function finalizeTicketCreation(catName, prefix, globalTicketNum) {
+            const formatNum = prefix + '-' + globalTicketNum.toString().padStart(3,'0');
+            const skrg = new Date();
+            const dateStr = skrg.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});
+            const timeStr = skrg.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+            const tiketBaru = {
+                id: Date.now() + Math.random(), category:catName, prefix, num:globalTicketNum,
+                formatted:formatNum, date:dateStr, time:timeStr, datetimeFull:dateStr+' '+timeStr,
+                status:'Menunggu', createdAt:firebase.database.ServerValue.TIMESTAMP
+            };
+            try {
+                await ticketsRef.push(tiketBaru);
+            } catch(e) {
+                alert('Gagal menyimpan tiket ke Firebase: ' + e.message);
+                return;
+            }
+            document.getElementById('modal-ticket-num').innerText=formatNum;
+            document.getElementById('modal-ticket-category').innerText=categories[catName].name;
+            document.getElementById('modal-ticket-date').innerText=dateStr;
+            document.getElementById('modal-ticket-time').innerText=timeStr;
+            document.getElementById('receipt-modal').classList.remove('hidden');
+
+            const ESC='\x1B', GS='\x1D', alignCenter=ESC+'a\x01', alignLeft=ESC+'a\x00';
+            const boldOn=ESC+'E\x01', boldOff=ESC+'E\x00', hugeSize=GS+'!\x33', mediumSize=GS+'!\x11', normalSize=GS+'!\x00';
+            const lineDivider='------------------------------------------------', poliName=categories[catName].name.toUpperCase();
+            const rawbtText=ESC+'@'+alignCenter+normalSize+boldOn+'PUSKESMAS DELHA\n'+'KABUPATEN ROTE NDAO\n\n'+normalSize+boldOff+'NOMOR ANTREAN\n\n'+hugeSize+boldOn+formatNum+'\n\n'+mediumSize+boldOn+poliName+'\n\n'+normalSize+boldOff+alignLeft+dateStr+'                       '+timeStr+'\n'+alignCenter+lineDivider+'\n'+'Mohon tunggu sampai\n'+'nomor Anda dipanggil.\n\n'+'Terima Kasih\n\n\n\n';
+            setTimeout(()=>{ window.location.href='rawbt:'+encodeURIComponent(rawbtText); },400);
+        }
+
+        async function panggilLayanan(key, ticketId, isRepeat=false) {
+            if(!ticketId) return;
+            const ticket=queueState.history.find(item=>item.id==ticketId);
+            if(!ticket || !firebaseReady) return;
+            const updates={};
+            if(!isRepeat) {
+                if(ticket.firebaseKey) updates['tickets/'+ticket.firebaseKey+'/status']='Dilayani';
+                updates['activeCalling/'+key]=ticket.formatted;
+            }
+            const lastCall={id:ticket.id,ticket:ticket.formatted,prefix:ticket.prefix,num:ticket.num,poli:categories[key].name,poliKey:key,timestamp:firebase.database.ServerValue.TIMESTAMP};
+            updates['lastCalled']=lastCall;
+            try { await rootRef.update(updates); }
+            catch(e){ alert('Gagal memanggil nomor: '+e.message); return; }
+            if(currentViewMode==='admin') suaraPanggil(ticket.prefix,ticket.num);
+        }
+
+        function renderAdminPanel() {
+            const container=document.getElementById('admin-cards-container'); if(!container)return;
+            container.innerHTML='';
+            Object.keys(categories).forEach(key=>{
+                const cat=categories[key];
+                const historyForCat=queueState.history.filter(item=>item.category===key);
+                const latestTicketForCat=historyForCat.length?historyForCat[0].formatted:'Belum Ada';
+                const currentlyServed=queueState.activeCalling[key]||'Belum Ada';
+                const sisaAntrian=historyForCat.filter(item=>item.status==='Menunggu').length;
+                const waitingTickets=historyForCat.filter(item=>item.status==='Menunggu');
+                const nextTicket=waitingTickets.length?waitingTickets[waitingTickets.length-1]:null;
+                const nextTicketId=nextTicket?nextTicket.id:null;
+                const activeTicket=queueState.history.find(item=>item.formatted===currentlyServed);
+                const activeTicketId=activeTicket?activeTicket.id:null;
+                container.innerHTML+=`<div class="border border-slate-700 rounded-xl p-3 flex flex-col justify-between bg-slate-900/60">
+                    <div class="flex items-center justify-between mb-1.5"><span class="font-extrabold text-slate-200 text-xs md:text-sm">${cat.name}</span><span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${cat.color} text-white">Sisa: ${sisaAntrian}</span></div>
+                    <div class="grid grid-cols-2 gap-2 my-1.5 text-center"><div class="bg-slate-800 p-1.5 rounded-lg border border-slate-700"><p class="text-[8px] text-slate-400 font-bold uppercase">Terakhir</p><p class="text-sm font-black text-slate-300">${latestTicketForCat}</p></div><div class="bg-slate-800 p-1.5 rounded-lg border border-slate-700"><p class="text-[8px] text-slate-400 font-bold uppercase">Dipanggil</p><p class="text-sm font-black text-emerald-400">${currentlyServed}</p></div></div>
+                    <div class="grid grid-cols-2 gap-2 mt-1.5"><button onclick="panggilLayanan('${key}', ${nextTicketId})" class="py-2 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1 transition ${!nextTicketId?'opacity-40 cursor-not-allowed':'shadow-md'}" ${!nextTicketId?'disabled':''}>Panggil</button><button onclick="panggilLayanan('${key}', ${activeTicketId}, true)" class="py-2 px-2 rounded-lg border border-slate-600 hover:bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center transition ${!activeTicketId?'opacity-40 cursor-not-allowed':''}" ${!activeTicketId?'disabled':''}>Ulangi</button></div>
+                </div>`;
+            });
+        }
+
+        function renderHistoryLog() {
+            const logContainer=document.getElementById('history-log'); if(!logContainer)return;
+            logContainer.innerHTML='';
+            queueState.history.forEach(item=>{
+                const isDilayani=item.status==='Dilayani';
+                logContainer.innerHTML+=`<div class="bg-slate-900/50 p-2 rounded border ${isDilayani?'border-emerald-700/50':'border-slate-700'} flex justify-between items-center text-xs"><div><span class="font-bold text-slate-200">${item.formatted}</span><span class="text-[9px] text-slate-500 ml-1">(${categories[item.category].name})</span></div><div class="flex items-center gap-2"><span class="${isDilayani?'text-emerald-400':'text-amber-400'} text-[10px]">${item.status}</span><button onclick="panggilLayanan('${item.category}', ${item.id}, true)" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-[9px]">Panggil Ulang</button></div></div>`;
+            });
+        }
+
+        function renderTVGrid() {
+            const container=document.getElementById('tv-grid-container'); if(!container)return;
+            container.innerHTML='';
+            Object.keys(categories).forEach(key=>{
+                const cat=categories[key], currentTicket=queueState.activeCalling[key]||'---', isCurrentlyCalled=queueState.lastCalled&&queueState.lastCalled.poliKey===key;
+                container.innerHTML+=`<div class="bg-slate-900 rounded-xl p-2 md:p-2.5 flex flex-col justify-between border border-slate-800 shadow-sm ${isCurrentlyCalled?'animate-flash ring-2 ring-emerald-400':''}"><div class="${cat.tvColor} w-full py-1.5 rounded-md text-center shadow-inner"><h3 class="text-white font-black text-xs md:text-sm tracking-wider uppercase leading-tight">${cat.name}</h3></div><div class="flex-grow flex items-center justify-center py-2 bg-slate-950/60 mt-1.5 rounded-lg"><span class="text-2xl md:text-3xl font-black ${currentTicket==='---'?'text-slate-700':'text-emerald-400'} drop-shadow">${currentTicket}</span></div></div>`;
+            });
+            if(queueState.lastCalled&&queueState.lastCalled.ticket){
+                const lp=document.getElementById('tv-last-poli'), lt=document.getElementById('tv-last-ticket');
+                if(lp)lp.innerText=queueState.lastCalled.poli?queueState.lastCalled.poli.toUpperCase():'---'; if(lt)lt.innerText=queueState.lastCalled.ticket;
+                const op=document.getElementById('tv-overlay-poli'); if(op)op.innerText=queueState.lastCalled.poli?queueState.lastCalled.poli.toUpperCase():'LOKET PENDAFTARAN';
+            }
+        }
+
+        function suaraPanggil(prefix,num){
+            const video=document.getElementById('tv-video-player');
+            if(video&&!video.muted){savedVideoVolume=video.volume;video.volume=0.1;}
+            if('speechSynthesis' in window){
+                window.speechSynthesis.cancel();
+                const formattedNumStr=num.toString().padStart(3,'0');
+                const spellLetters=prefix+' '+formattedNumStr.split('').map(d=>d==='0'?'kosong':d).join(' ');
+                const utterance=new SpeechSynthesisUtterance(`Nomor antrean, ${spellLetters}, silahkan ke, loket pendaftaran.`);
+                utterance.lang='id-ID'; utterance.rate=0.85;
+                const restoreVolume=()=>{if(video&&!video.muted)video.volume=savedVideoVolume;};
+                utterance.onend=restoreVolume; utterance.onerror=restoreVolume; window.speechSynthesis.speak(utterance); setTimeout(restoreVolume,7000);
+            }
+        }
+
+        function triggerTVCall(lastCallData){
+            suaraPanggil(lastCallData.prefix,lastCallData.num);
+            const overlay=document.getElementById('tv-call-overlay'), overlayTicket=document.getElementById('tv-overlay-ticket');
+            if(overlayTicket)overlayTicket.innerText=lastCallData.ticket;
+            if(overlay){overlay.classList.remove('scale-0','opacity-0');overlay.classList.add('scale-100','opacity-100');}
+            clearTimeout(tvCallTimeout);
+            tvCallTimeout=setTimeout(()=>{if(overlay){overlay.classList.remove('scale-100','opacity-100');overlay.classList.add('scale-0','opacity-0');}},7000);
+        }
+
+        function switchView(viewName){
+            ['kiosk','admin','tv'].forEach(v=>{const el=document.getElementById(`view-${v}`);if(el)el.classList.add('hidden');});
+            const targetView=document.getElementById(`view-${viewName}`);if(targetView)targetView.classList.remove('hidden');currentViewMode=viewName;
+            const nav=document.getElementById('main-nav'), tvAudio=document.getElementById('tv-start-audio');
+            if(viewName==='tv'){if(nav)nav.classList.add('hidden');if(tvAudio)tvAudio.classList.remove('hidden');isTVModeActive=false;}else{if(nav)nav.classList.remove('hidden');isTVModeActive=false;}
+        }
+        function startTVMode(){const tvAudio=document.getElementById('tv-start-audio');if(tvAudio)tvAudio.classList.add('hidden');isTVModeActive=true;renderTVGrid();const vid=document.getElementById('tv-video-player');if(vid){vid.volume=Number(queueState.videoVolume||50)/100;vid.muted=!!queueState.videoMuted;vid.play().catch(e=>console.log('Auto-play terblokir',e));}}
+        function updateMuteIcon(){const icon=document.getElementById('admin-mute-icon');if(icon)icon.className=queueState.videoMuted?'fa-solid fa-volume-xmark':'fa-solid fa-volume-high';}
+        async function toggleVideoMute(){const vid=document.getElementById('tv-video-player');if(!vid||!firebaseReady)return;const muted=!vid.muted;try{await settingsRef.update({videoMuted:muted});}catch(e){console.error(e);}}
+        async function setVideoVolume(val){const vid=document.getElementById('tv-video-player');if(vid)vid.volume=Number(val)/100;if(firebaseReady)settingsRef.update({videoVolume:Number(val)}).catch(console.error);}
+        function gantiVideoTV(event){const file=event.target.files[0];if(file){const vidURL=URL.createObjectURL(file),vid=document.getElementById('tv-video-player');if(vid){vid.src=vidURL;vid.play();}}}
+
+        function bukaPetunjukPrinter(){const m=document.getElementById('printer-guide-modal');if(m)m.classList.remove('hidden');}
+        function tutupPetunjukPrinter(){const m=document.getElementById('printer-guide-modal');if(m)m.classList.add('hidden');}
+        function closeReceiptModal(){const m=document.getElementById('receipt-modal');if(m)m.classList.add('hidden');}
+        function bukaKonfirmasiReset(){const m=document.getElementById('reset-confirm-modal');if(m)m.classList.remove('hidden');}
+        function tutupKonfirmasiReset(){const m=document.getElementById('reset-confirm-modal');if(m)m.classList.add('hidden');}
+
+        async function eksekusiResetAntrian(){
+            if(!firebaseReady)return;
+            const updates={globalCounter:0,tickets:null,activeCalling:{...EMPTY_ACTIVE},lastCalled:{id:null,ticket:null,poli:null,prefix:null,num:null,timestamp:null}};
+            try{await rootRef.update(updates);tutupKonfirmasiReset();}catch(e){alert('Gagal reset antrean: '+e.message);}
+        }
+    </script>
+</body>
+</html>
